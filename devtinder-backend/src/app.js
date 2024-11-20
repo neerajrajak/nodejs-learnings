@@ -1,11 +1,14 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
 const connectDB = require("./dbconfig");
 const User = require("../src/models/user");
 const { validateSignUpData } = require("./utils/validation");
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.post("/signup", async (req, res) => {
   try {
@@ -36,7 +39,6 @@ app.post("/login", async (req, res) => {
   try {
     const { emailId, password } = req.body;
     const user = await User.findOne({ emailId });
-    console.log(user);
     
     if (!user) {
       res.status(401).send({
@@ -46,7 +48,6 @@ app.post("/login", async (req, res) => {
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    console.log(isPasswordValid);
     
     if (!isPasswordValid) {
       res.status(401).send({
@@ -54,6 +55,13 @@ app.post("/login", async (req, res) => {
         message: "Invalid Credential",
       });
     } else{
+      // create the token
+      const token = jwt.sign({ _id: user._id }, 'mysecretkey');
+      console.log("token: ", token);
+      
+
+      // Add the token to cookie and send the response to the user
+      res.cookie("token",token);
       res.send({
         authenticated: true,
         message: "You are a valid user.",
@@ -63,6 +71,26 @@ app.post("/login", async (req, res) => {
   } catch (error) {
     console.log("An error occured: ", error);
     res.status(500).send(error.message);
+  }
+});
+
+app.get('/profile', async (req, res)=>{
+  try{
+    const { token } = req.cookies;
+  if(!token) throw new Error('Invalid Token');
+  const {_id} = await jwt.verify('token', 'mysecretkey');
+  if(!_id) throw new Error('Not Authenticated');
+  console.log('decodedMessadge: ', decodedMessadge);
+  
+  const user = await User.findById(_id);
+
+  if(!user){
+    res.status(401).send("You are not authenticated");
+  } else {
+    res.send(user);
+  }
+  } catch(error){
+    res.status(401).send(error.message);
   }
 });
 
