@@ -1,7 +1,6 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const cookieParser = require("cookie-parser");
-const jwt = require("jsonwebtoken");
 const connectDB = require("./dbconfig");
 const User = require("../src/models/user");
 const { validateSignUpData } = require("./utils/validation");
@@ -48,7 +47,7 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await user.validatePassword(password);
 
     if (!isPasswordValid) {
       res.status(401).send({
@@ -57,14 +56,14 @@ app.post("/login", async (req, res) => {
       });
     } else {
       // create the token
-      const token = jwt.sign({ _id: user._id }, "mysecretkey", {
-        expiresIn: "0d",
-      });
+      const token = await user.getJWT();
+
       console.log("token: ", token);
-      let currentDate = new Date();
+      
       // Add the token to cookie and send the response to the user
+      let currentDate = new Date();
       res.cookie("token", token, {
-        expires: currentDate.setHours(currentDate.getHours() + 5),  // expires cookie in 5 hours
+        expires: new Date(Date.now()+ 8*10000), // expires cookie in 5 hours
       });
       res.send({
         authenticated: true,
